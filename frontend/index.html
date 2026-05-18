@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Voice AI</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0f0f0f; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+    h1 { margin-bottom: 10px; font-size: 2rem; }
+    p { color: #888; margin-bottom: 40px; }
+    #btn { width: 100px; height: 100px; border-radius: 50%; border: none; background: #6c63ff; cursor: pointer; font-size: 2rem; transition: all 0.2s; }
+    #btn.recording { background: #ff4444; transform: scale(1.1); }
+    #status { margin-top: 20px; color: #888; font-size: 0.9rem; }
+    #transcript { margin-top: 30px; max-width: 500px; text-align: center; }
+    #transcript .you { color: #6c63ff; margin-bottom: 8px; }
+    #transcript .ai { color: #00e5a0; }
+  </style>
+</head>
+<body>
+  <h1>🎤 Voice AI</h1>
+  <p>Press and hold to talk</p>
+  <button id="btn">🎤</button>
+  <div id="status">Ready</div>
+  <div id="transcript">
+    <div class="you" id="you"></div>
+    <div class="ai" id="ai"></div>
+  </div>
+
+  <script>
+    const btn = document.getElementById("btn");
+    const status = document.getElementById("status");
+    const youEl = document.getElementById("you");
+    const aiEl = document.getElementById("ai");
+
+    let mediaRecorder, chunks = [];
+
+    btn.addEventListener("mousedown", startRecording);
+    btn.addEventListener("mouseup", stopRecording);
+    btn.addEventListener("touchstart", startRecording);
+    btn.addEventListener("touchend", stopRecording);
+
+    async function startRecording() {
+      chunks = [];
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = e => chunks.push(e.data);
+      mediaRecorder.start();
+      btn.classList.add("recording");
+      status.textContent = "Recording...";
+    }
+
+    async function stopRecording() {
+      mediaRecorder.stop();
+      btn.classList.remove("recording");
+      status.textContent = "Processing...";
+
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(chunks, { type: "audio/webm" });
+        const formData = new FormData();
+        formData.append("audio", blob, "audio.webm");
+
+        try {
+          const res = await fetch("http://127.0.0.1:8000/talk", {
+            method: "POST",
+            body: formData
+          });
+
+          const audioBlob = await res.blob();
+          const userText = res.headers.get("X-Transcript");
+          const aiText = res.headers.get("X-Reply");
+
+          youEl.textContent = "You: " + userText;
+          aiEl.textContent = "AI: " + aiText;
+
+          const audio = new Audio(URL.createObjectURL(audioBlob));
+          audio.play();
+          status.textContent = "Ready";
+        } catch (err) {
+          status.textContent = "Error — is server running?";
+        }
+      };
+    }
+  </script>
+</body>
+</html>
