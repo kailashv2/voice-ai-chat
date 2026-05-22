@@ -62,17 +62,18 @@ You speak → Whisper transcribes → LLaMA thinks → gTTS speaks
 
 ## 📁 Project Structure
 
+```
 voice-ai-chat/
 ├── backend/
-│   ├── main.py        ← FastAPI server
-│   ├── stt.py         ← Speech to text (Groq Whisper)
-│   ├── tts.py         ← Text to speech (gTTS)
+│   ├── main.py            ← FastAPI server
+│   ├── stt.py             ← Speech to text (Groq Whisper)
+│   ├── tts.py             ← Text to speech (gTTS)
 │   └── requirements.txt
 ├── frontend/
-│   └── index.html     ← UI
-├── .env               ← API keys (not committed)
+│   └── index.html         ← UI
+├── .env                   ← API keys (not committed)
 └── README.md
-
+```
 ## 🆓 Cost
 
 Completely free.
