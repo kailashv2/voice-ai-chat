@@ -3,4 +3,4 @@ uvicorn
 groq
 gtts
 python-dotenv
-openai-whisper
+python-multipart
