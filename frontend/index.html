@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -7,11 +7,7 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #0f0f0f; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
     h1 { margin-bottom: 10px; font-size: 2rem; }
-    p { color: #888; margin-bottom: 20px; }
-    #wake-btn { background: #1a1a2e; color: #6c63ff; border: 1px solid #6c63ff; padding: 8px 20px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; margin-bottom: 20px; transition: all 0.2s; }
-    #wake-btn:hover { background: #6c63ff; color: #fff; }
-    #wake-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    #wake-status { color: #888; font-size: 0.8rem; margin-bottom: 15px; min-height: 20px; }
+    p { color: #888; margin-bottom: 40px; }
     #btn { width: 100px; height: 100px; border-radius: 50%; border: none; background: #6c63ff; cursor: pointer; font-size: 2rem; transition: all 0.2s; }
     #btn.recording { background: #ff4444; transform: scale(1.1); }
     #btn:disabled { background: #444; cursor: not-allowed; }
@@ -24,10 +20,8 @@
 <body>
   <h1>🎤 Voice AI</h1>
   <p>Press and hold to talk</p>
-  <button id="wake-btn" onclick="wakeServer()">⚡ Wake Server First</button>
-  <div id="wake-status"></div>
-  <button id="btn" disabled>🎤</button>
-  <div id="status">Wake the server first ☝️</div>
+  <button id="btn">🎤</button>
+  <div id="status">Ready</div>
   <div id="transcript">
     <div class="you" id="you"></div>
     <div class="ai" id="ai"></div>
@@ -41,35 +35,6 @@
 
     let mediaRecorder, chunks = [], stream;
 
-    async function wakeServer() {
-      const wakeBtn = document.getElementById("wake-btn");
-      const wakeStatus = document.getElementById("wake-status");
-      wakeBtn.disabled = true;
-      let seconds = 0;
-      const timer = setInterval(() => {
-        seconds++;
-        if (seconds < 5) {
-          wakeStatus.textContent = "⏳ Connecting... " + seconds + "s";
-        } else if (seconds < 20) {
-          wakeStatus.textContent = "⏳ Waking server up... " + seconds + "s";
-        } else {
-          wakeStatus.textContent = "☕ Almost ready... " + seconds + "s (hang tight!)";
-        }
-      }, 1000);
-      try {
-        await fetch("https://voice-ai-chat-qd2r.onrender.com");
-        clearInterval(timer);
-        wakeStatus.textContent = "✅ Server is ready! Press mic to talk.";
-        wakeBtn.style.display = "none";
-        btn.disabled = false;
-        status.textContent = "Ready";
-      } catch (err) {
-        clearInterval(timer);
-        wakeStatus.textContent = "❌ Failed to connect — try again";
-        wakeBtn.disabled = false;
-      }
-    }
-
     btn.addEventListener("mousedown", startRecording);
     btn.addEventListener("mouseup", stopRecording);
     btn.addEventListener("touchstart", (e) => { e.preventDefault(); startRecording(); });
@@ -82,11 +47,14 @@
         stream = await navigator.mediaDevices.getUserMedia({
           audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 16000 }
         });
+
+        // Pick best supported format
         const mimeType = MediaRecorder.isTypeSupported('audio/mp4')
           ? 'audio/mp4'
           : MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
           ? 'audio/webm;codecs=opus'
           : 'audio/webm';
+
         mediaRecorder = new MediaRecorder(stream, { mimeType });
         mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
         mediaRecorder.start(250);
@@ -104,40 +72,43 @@
       btn.classList.remove("recording");
       btn.disabled = true;
       status.textContent = "Processing...";
+
       mediaRecorder.onstop = async () => {
         const mimeType = mediaRecorder.mimeType || "audio/webm";
         const ext = mimeType.includes("mp4") ? "mp4" : "webm";
         const blob = new Blob(chunks, { type: mimeType });
+
         if (blob.size < 1000) {
           status.textContent = "Too short — try again!";
           btn.disabled = false;
           return;
         }
+
         const formData = new FormData();
-        formData.append("audio", blob, "audio." + ext);
+        formData.append("audio", blob, `audio.${ext}`);
+
         try {
-          let seconds = 0;
-          const timer = setInterval(() => {
-            seconds++;
-            status.textContent = "🧠 AI is thinking... " + seconds + "s";
-          }, 1000);
+          status.textContent = "AI is thinking...";
           const res = await fetch("https://voice-ai-chat-qd2r.onrender.com/talk", {
             method: "POST",
             body: formData
           });
-          clearInterval(timer);
+
           if (!res.ok) throw new Error("Server error");
+
           const audioBlob = await res.blob();
           const userText = res.headers.get("X-Transcript");
           const aiText = res.headers.get("X-Reply");
+
           youEl.textContent = "You: " + userText;
           aiEl.textContent = "AI: " + aiText;
-          status.textContent = "🔊 AI is speaking...";
+
+          status.textContent = "AI is speaking...";
           const audio = new Audio(URL.createObjectURL(audioBlob));
           audio.onended = () => { status.textContent = "Ready"; btn.disabled = false; };
           audio.play();
         } catch (err) {
-          status.textContent = "❌ Error — try again";
+          status.textContent = "Error — is server running?";
           btn.disabled = false;
         }
       };
