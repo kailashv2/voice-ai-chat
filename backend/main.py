@@ -1,6 +1,8 @@
+import urllib.parse
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import Response, FileResponse
+from fastapi.staticfiles import StaticFiles
 from groq import Groq
 from dotenv import load_dotenv
 from stt import transcribe_audio
@@ -18,6 +20,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+os.makedirs("static", exist_ok=True)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 SYSTEM_PROMPT = """You are a fast voice assistant.
@@ -25,7 +30,12 @@ Rules:
 - Reply in MAX 2-3 short sentences
 - Never use bullet points or markdown
 - Speak naturally like a human
-- Be direct and concise"""
+- Be direct and concise
+- Reply in the same language the user speaks"""
+
+@app.get("/")
+def root():
+    return FileResponse("static/index.html")
 
 @app.post("/talk")
 async def talk(audio: UploadFile = File(...)):
@@ -63,12 +73,8 @@ async def talk(audio: UploadFile = File(...)):
         content=audio_response,
         media_type="audio/mpeg",
         headers={
-            "X-Transcript": user_text,
-            "X-Reply": reply_text,
+            "X-Transcript": urllib.parse.quote(user_text),
+            "X-Reply": urllib.parse.quote(reply_text),
             "Access-Control-Expose-Headers": "X-Transcript, X-Reply"
         }
     )
-
-@app.get("/")
-def root():
-    return {"status": "Voice AI running"}
