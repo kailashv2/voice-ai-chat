@@ -47,14 +47,11 @@
         stream = await navigator.mediaDevices.getUserMedia({
           audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 16000 }
         });
-
-        // Pick best supported format
         const mimeType = MediaRecorder.isTypeSupported('audio/mp4')
           ? 'audio/mp4'
           : MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
           ? 'audio/webm;codecs=opus'
           : 'audio/webm';
-
         mediaRecorder = new MediaRecorder(stream, { mimeType });
         mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
         mediaRecorder.start(250);
@@ -85,11 +82,11 @@
         }
 
         const formData = new FormData();
-        formData.append("audio", blob, `audio.${ext}`);
+        formData.append("audio", blob, "audio." + ext);
 
         try {
           status.textContent = "AI is thinking...";
-          const res = await fetch("https://voice-ai-chat-qd2r.onrender.com/talk", {
+          const res = await fetch("/talk", {
             method: "POST",
             body: formData
           });
@@ -97,8 +94,8 @@
           if (!res.ok) throw new Error("Server error");
 
           const audioBlob = await res.blob();
-          const userText = res.headers.get("X-Transcript");
-          const aiText = res.headers.get("X-Reply");
+          const userText = decodeURIComponent(res.headers.get("X-Transcript") || "");
+          const aiText = decodeURIComponent(res.headers.get("X-Reply") || "");
 
           youEl.textContent = "You: " + userText;
           aiEl.textContent = "AI: " + aiText;
@@ -108,7 +105,7 @@
           audio.onended = () => { status.textContent = "Ready"; btn.disabled = false; };
           audio.play();
         } catch (err) {
-          status.textContent = "Error — is server running?";
+          status.textContent = "Error — try again!";
           btn.disabled = false;
         }
       };
